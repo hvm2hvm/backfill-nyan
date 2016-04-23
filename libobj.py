@@ -16,7 +16,6 @@ class Point(object):
 
     def run_gl(self):
         pp = self.pp()
-        # print "point: ", pp
         glVertex3f(*pp)
 
 class Triangle(object):
