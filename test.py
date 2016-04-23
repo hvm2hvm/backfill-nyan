@@ -6,7 +6,7 @@ from OpenGL.GLU import *
 from PyQt4 import QtGui as gui
 from PyQt4 import QtOpenGL as qgl
 
-from create import *
+from libobj import *
 
 class GLDisplay(qgl.QGLWidget):
 
@@ -43,6 +43,7 @@ class GLDisplay(qgl.QGLWidget):
         glEnable(GL_DEPTH_TEST)
         # glEnable(GL_CULL_FACE)
         glShadeModel(GL_SMOOTH)
+        # glFrontFace(GL_CW)
 
         glMaterialfv(GL_FRONT, GL_AMBIENT, [0.0, 0.0, 0.0, ])
         glMaterialfv(GL_FRONT, GL_SPECULAR, [1.0, 1.0, 1.0, ])

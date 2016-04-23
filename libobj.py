@@ -4,6 +4,9 @@ import types
 
 from OpenGL.GL import *
 
+import numpy
+from stl import mesh
+
 class Point(object):
 
     def __init__(self, x, y, z, n=None):
@@ -139,3 +142,19 @@ def triangle_normal(p1, p2, p3):
     nz = ux * vy - uy * vx
 
     return (nx, ny, nz, )
+
+
+def scene_to_stl(objects):
+    count_polys = sum([len(obj.get_polys()) for obj in objects])
+    mesh_data = numpy.zeros(count_polys, dtype=mesh.Mesh.dtype)
+    i = 0
+    for obj in objects:
+        points = obj.get_points()
+        for p in obj.get_polys():
+            mesh_data['vectors'][i] = numpy.array([list(points[pi].pp()) for pi in p.indices])
+
+            i += 1
+
+    scene = mesh.Mesh(mesh_data)
+
+    return scene
