@@ -1,3 +1,4 @@
+import glob
 import sys
 import PyQt4 as qt
 from OpenGL.GL import *
@@ -11,10 +12,13 @@ class GLDisplay(qgl.QGLWidget):
 
     def __init__(self, parent):
         qgl.QGLWidget.__init__(self, parent)
-        self.obj = Object('foil_silver.obj.pickle')
+        self.objects = [
+            Object(fn) for fn in glob.glob('*.obj.pickle')
+        ]
         self.clicking = False
-        self.rx = 0
-        self.ry = 0
+        self.rx = 30
+        self.ry = 30
+        self.zoom = 1
 
     def paintGL(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -22,12 +26,14 @@ class GLDisplay(qgl.QGLWidget):
 
         glTranslatef(0, 0, -10)
         glScalef(5, 5, 5)
-        glColor3f(1.0, 1.5, 0.0)
+        glScalef(*[self.zoom] * 3)
+        # glColor3f(1.0, 1.0, 1.0)
 
         glRotatef(self.rx, 0, 1, 0)
         glRotatef(self.ry, 1, 0, 0)
 
-        self.obj.run_gl()
+        for obj in self.objects:
+            obj.run_gl()
 
         glFlush()
 
@@ -35,12 +41,16 @@ class GLDisplay(qgl.QGLWidget):
         glClearDepth(1.0)
         glDepthFunc(GL_LESS)
         glEnable(GL_DEPTH_TEST)
+        # glEnable(GL_CULL_FACE)
         glShadeModel(GL_SMOOTH)
 
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0, ])
-        glMaterialfv(GL_FRONT, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0, ])
+        glMaterialfv(GL_FRONT, GL_AMBIENT, [0.0, 0.0, 0.0, ])
+        glMaterialfv(GL_FRONT, GL_SPECULAR, [1.0, 1.0, 1.0, ])
         glMaterialfv(GL_FRONT, GL_SHININESS, 50.0)
-        glLightfv(GL_LIGHT0, GL_POSITION, [5, 5, 20])
+        glLightfv(GL_LIGHT0, GL_AMBIENT, [0.0, 0.0, 0.0, ])
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, [6.0, 6.0, 6.0, ])
+        glLightfv(GL_LIGHT0, GL_SPECULAR, [1.0, 1.0, 1.0, ])
+        glLightfv(GL_LIGHT0, GL_POSITION, [10,10,10])
 
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
@@ -71,6 +81,13 @@ class GLDisplay(qgl.QGLWidget):
     def mouseReleaseEvent(self, e):
         self.clicking = False
 
+    def wheelEvent(self, e):
+        if e.delta() > 0:
+            self.zoom *= 1.1
+        else:
+            self.zoom /= 1.1
+        self.repaint()
+
 class MainWindow(gui.QWidget):
 
     def __init__(self, parent=None):
@@ -87,8 +104,8 @@ class MainWindow(gui.QWidget):
 
 app = gui.QApplication(sys.argv)
 w = MainWindow()
-w.resize(600, 400)
-w.move(200, 200)
+w.resize(1600, 900)
+w.move(200, 50)
 w.setWindowTitle('Default')
 w.show()
 
