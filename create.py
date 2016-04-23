@@ -3,8 +3,8 @@ from libobj import *
 
 
 def get_cone(r, h):
-    points = [Point(0, 0, h)]
-    triangles = []
+    points = [Point(0, 0, h, (0,0,1))]
+    polys = []
 
     for i in range(32):
         a = 2 * math.pi * i / 32
@@ -22,11 +22,14 @@ def get_cone(r, h):
             i2 = 1
 
         n = triangle_normal(points[0], points[i1], points[i2])
-        t = Triangle(0, i1, i2, n)
-        triangles.append(t)
+        print n
+        points[i1].n = n
+        points[i2].n = n
+
+        polys.append(Poly([0,i1,i2]))
 
     obj = Object()
     obj.set_points(points)
-    obj.set_triangles(triangles)
+    obj.set_polys(polys)
 
     return obj

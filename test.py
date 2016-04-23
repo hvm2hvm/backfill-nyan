@@ -11,7 +11,7 @@ class GLDisplay(qgl.QGLWidget):
 
     def __init__(self, parent):
         qgl.QGLWidget.__init__(self, parent)
-        self.obj = get_cone(1, 3)
+        self.obj = Object('foil_silver.obj.pickle')
         self.clicking = False
         self.rx = 0
         self.ry = 0
@@ -20,7 +20,8 @@ class GLDisplay(qgl.QGLWidget):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
 
-        glTranslatef(0, 0, -6.0)
+        glTranslatef(0, 0, -10)
+        glScalef(5, 5, 5)
         glColor3f(1.0, 1.5, 0.0)
 
         glRotatef(self.rx, 0, 1, 0)
@@ -36,9 +37,10 @@ class GLDisplay(qgl.QGLWidget):
         glEnable(GL_DEPTH_TEST)
         glShadeModel(GL_SMOOTH)
 
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0, ])
         glMaterialfv(GL_FRONT, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0, ])
         glMaterialfv(GL_FRONT, GL_SHININESS, 50.0)
-        glLightfv(GL_LIGHT0, GL_POSITION, [0, 0, 5])
+        glLightfv(GL_LIGHT0, GL_POSITION, [5, 5, 20])
 
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
@@ -49,7 +51,7 @@ class GLDisplay(qgl.QGLWidget):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         glViewport(0,0, self.width(), self.height())
-        gluPerspective(45.0, 1.33, 0.1, 100.0)
+        gluPerspective(45.0, 1.33, 0.1, 100)
         glMatrixMode(GL_MODELVIEW)
 
     def resizeEvent(self, e):
