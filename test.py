@@ -12,9 +12,7 @@ class GLDisplay(qgl.QGLWidget):
 
     def __init__(self, parent):
         qgl.QGLWidget.__init__(self, parent)
-        self.objects = [
-            Object(fn) for fn in glob.glob('*.obj.pickle')
-        ]
+        self.scene = Scene('themis.nyan')
         self.clicking = False
         self.rx = 30
         self.ry = 30
@@ -25,14 +23,14 @@ class GLDisplay(qgl.QGLWidget):
         glLoadIdentity()
 
         glTranslatef(0, 0, -10)
-        glScalef(5, 5, 5)
+        # glScalef(5, 5, 5)
         glScalef(*[self.zoom] * 3)
         # glColor3f(1.0, 1.0, 1.0)
 
         glRotatef(self.rx, 0, 1, 0)
         glRotatef(self.ry, 1, 0, 0)
 
-        for obj in self.objects:
+        for obj in self.scene.objects:
             obj.run_gl()
 
         glFlush()

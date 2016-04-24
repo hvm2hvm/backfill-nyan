@@ -4,8 +4,12 @@ import types
 
 from OpenGL.GL import *
 
-import numpy
-from stl import mesh
+try:
+    import numpy
+    from stl import mesh
+except ImportError:
+    numpy = None
+    mesh = None
 
 class Point(object):
 
@@ -123,6 +127,26 @@ class Object(object):
                     points[i].run_gl()
                 glEnd()
 
+# TODO: make a standard "save to file" object that can hold information about what it is
+# TODO: i.e. is it a scene or an object - a loader method/function would then look at that
+# TODO: and load as scene or object automatically. Maybe use a parameter like replace_scene
+class Scene(object):
+
+    def __init__(self, data=None):
+        if type(data) == str:
+            self.load_from_file(data)
+        elif type(data) == list:
+            self.objects = data
+
+    def add_object(self, object):
+        self.objects.append(object)
+
+    def load_from_file(self, filename):
+        self.objects = pickle.loads(open(filename, 'rb').read())
+
+    def save_to_file(self, filename):
+        open(filename, 'wb').write(pickle.dumps(self.objects, 2))
+
 """
     Nx = UyVz - UzVy
     Ny = UzVx - UxVz
@@ -145,6 +169,9 @@ def triangle_normal(p1, p2, p3):
 
 
 def scene_to_stl(objects):
+    if not all([numpy, mesh]):
+        raise RuntimeError("scene_to_stl: numpy or mesh are not available, this will not work")
+
     count_polys = sum([len(obj.get_polys()) for obj in objects])
     mesh_data = numpy.zeros(count_polys, dtype=mesh.Mesh.dtype)
     i = 0
