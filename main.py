@@ -42,8 +42,6 @@ class GLDisplay(qgl.QGLWidget):
         glRotatef(self.rx, 0, 1, 0)
         glRotatef(self.ry, 1, 0, 0)
 
-        if len(self.scene.objects) == 1:
-            print "in output paint"
         for obj in self.scene.objects:
             obj.run_gl()
 
@@ -203,12 +201,14 @@ def sit_np(c, r, polys):
     return False
 
 
+leaves_global = set()
+
+
 class OctTree(object):
 
     def __init__(self, x1, y1, z1, x2, y2, z2, res):
         if abs(x2-x1) < res / 10.0 or abs(y2-y1) < res / 10.0 or abs(z2-z1) < res / 10.0:
             self.possible = False
-            return
         else:
             self.possible = True
 
@@ -226,7 +226,7 @@ class OctTree(object):
         
         self.has_poly = False
 
-        self.children = []
+        self.children = None
         
 
     def create_children(self):
@@ -234,7 +234,7 @@ class OctTree(object):
 
         xm = self.x1 + self.xlen / 2 * self.res
         ym = self.y1 + self.ylen / 2 * self.res
-        zm = self.z2 + self.zlen / 2 * self.res
+        zm = self.z1 + self.zlen / 2 * self.res
         
         self.children = [
             child for child in [
@@ -254,18 +254,23 @@ class OctTree(object):
         min = numpy.array([self.x1, self.y1, self.z1], dtype=numpy.float64)
         max = numpy.array([self.x2, self.y2, self.z2], dtype=numpy.float64)
         for v in p:
-            if not (all(v > min) and all(max > v)):
-                return False
+            if all(v > min) and all(max > v):
+                return True
 
-        return True
+        return False
 
     def add_poly(self, p):
         if self.poly_contained(p):
             self.has_poly = True
             if self.xlen >= 2 or self.ylen >= 2 or self.zlen >= 2:
-                self.create_children()
+                if self.children is None:
+                    self.create_children()
                 for child in self.children:
                     child.add_poly(p)
+            else:
+                # print "poly is contained in leaf: ", self.xlen, self.ylen, self.zlen, self.x1, self.y1, self.z1
+                pass
+                leaves_global.add((self.x1, self.y1, self.z1, self.x2, self.y2, self.z2))
 
     def get_leaves(self):
         if not self.has_poly:
@@ -275,14 +280,14 @@ class OctTree(object):
 
         for child in self.children:
             if child.has_poly:
-                if child.xlen == 1 and child.ylen == 1 and child.zlen == 1:
+                if child.xlen <= 1 and child.ylen <= 1 and child.zlen <= 1:
                     res.append((
                         child.x1 + self.res / 2,
                         child.y1 + self.res / 2,
                         child.z1 + self.res / 2,
                     ))
-                else:
-                    res += (child.get_leaves())
+                elif child.children is not None and len(child.children) > 0:
+                    res += child.get_leaves()
 
         return res
 
@@ -402,6 +407,9 @@ class MainWindow(gui.QWidget):
             self.scene_output.add_object(make_cube(Point(*l), self.resolution / 2))
 
     def solve_output_octree(self, min, max):
+        min = [co - self.resolution * 2 for co in min]
+        max = [co + self.resolution * 2 for co in max]
+        print "creating octree with bounds: ", min, max
         tree = OctTree(min[0], min[1], min[2], max[0], max[1], max[2], self.resolution)
 
         polys = []
@@ -414,8 +422,11 @@ class MainWindow(gui.QWidget):
                 polys.append(np)
         polys = numpy.array(polys, dtype=numpy.float64)
 
+        print "adding %d polys" % (len(polys))
         for poly in polys:
             tree.add_poly(poly)
+
+        print leaves_global
 
         leaves = tree.get_leaves()
         print "generated %d leaves" % (len(leaves))
