@@ -21,8 +21,3 @@ for x_index in range (0, int(space_size.x / cube_length)):
 			z_center = z_index * cube_length + cube_length / 2
 
 			create_cube(location=(x_center, y_center, z_center), radius= (cube_length / 2) * 0.9)
-			
-
-			# print ('x_center' + str(x_center))
-			# print ('y_center' + str(y_center))
-			# print ('z_center' + str(z_center))
