@@ -2,6 +2,7 @@ import glob
 import sys
 import PyQt4 as qt
 from OpenGL.GL import *
+import random
 from OpenGL.GLU import *
 from PyQt4 import QtGui as gui
 from PyQt4 import QtOpenGL as qgl
@@ -208,7 +209,7 @@ class MainWindow(gui.QWidget):
         print "processing %d locs with %d polys" % (len(locs), len(polys))
         solved = 0
         for l in locs:
-            for p in polys[:100]:
+            for p in polys[:500]:
                 if sphere_int_triangle(Point(*l), self.resolution, p):
                     rems.add(l)
             solved += 1
@@ -221,7 +222,7 @@ class MainWindow(gui.QWidget):
 
         stl = self.scene_output.convert_to_stl()
         stl.save('acrimsat_05.stl')
-        
+
 
 app = gui.QApplication(sys.argv)
 w = MainWindow()
