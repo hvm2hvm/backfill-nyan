@@ -313,10 +313,10 @@ class MainWindow(gui.QWidget):
         for l in rems:
             self.scene_output.add_object(make_cube(Point(*l), self.resolution / 2))
 
-        print "converting to stl and saving"
+        # print "converting to stl and saving"
 
-        stl = self.scene_output.convert_to_stl()
-        stl.save('acrimsat_05.stl')
+        # stl = self.scene_output.convert_to_stl()
+        # stl.save('acrimsat_05.stl')
 
 
 app = gui.QApplication(sys.argv)
