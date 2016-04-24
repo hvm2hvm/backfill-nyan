@@ -4,12 +4,7 @@ from matplotlib import pyplot
 
 from libobj import *
 
-objects = [
-    Object(fn) for fn in glob.glob('*.obj.pickle')
-]
-
-scene = scene_to_stl(objects)
-
+scene = Scene('tdrs.nyan').convert_to_stl()
 
 figure = pyplot.figure()
 axes = mplot3d.Axes3D(figure)
@@ -21,4 +16,4 @@ axes.auto_scale_xyz(scale, scale, scale)
 # Show the plot to the screen
 pyplot.show()
 
-scene.save('scene.stl')
+scene.save('tdrs.stl')

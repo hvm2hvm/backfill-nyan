@@ -137,6 +137,8 @@ class Scene(object):
             self.load_from_file(data)
         elif type(data) == list:
             self.objects = data
+        else:
+            self.objects = []
 
     def add_object(self, object):
         self.objects.append(object)
@@ -146,6 +148,24 @@ class Scene(object):
 
     def save_to_file(self, filename):
         open(filename, 'wb').write(pickle.dumps(self.objects, 2))
+
+    def convert_to_stl(self):
+        if not all([numpy, mesh]):
+            raise RuntimeError("scene_to_stl: numpy or mesh are not available, this will not work")
+
+        count_polys = sum([len(obj.get_polys()) for obj in self.objects])
+        mesh_data = numpy.zeros(count_polys, dtype=mesh.Mesh.dtype)
+        i = 0
+        for obj in self.objects:
+            points = obj.get_points()
+            for p in obj.get_polys():
+                mesh_data['vectors'][i] = numpy.array([list(points[pi].pp()) for pi in p.indices])
+
+                i += 1
+
+        scene = mesh.Mesh(mesh_data)
+
+        return scene
 
 """
     Nx = UyVz - UzVy
@@ -167,21 +187,3 @@ def triangle_normal(p1, p2, p3):
 
     return (nx, ny, nz, )
 
-
-def scene_to_stl(objects):
-    if not all([numpy, mesh]):
-        raise RuntimeError("scene_to_stl: numpy or mesh are not available, this will not work")
-
-    count_polys = sum([len(obj.get_polys()) for obj in objects])
-    mesh_data = numpy.zeros(count_polys, dtype=mesh.Mesh.dtype)
-    i = 0
-    for obj in objects:
-        points = obj.get_points()
-        for p in obj.get_polys():
-            mesh_data['vectors'][i] = numpy.array([list(points[pi].pp()) for pi in p.indices])
-
-            i += 1
-
-    scene = mesh.Mesh(mesh_data)
-
-    return scene
