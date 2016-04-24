@@ -1,0 +1,3 @@
+#!/bin/bash
+blender -b $1 -P export_blender_script.py
+
