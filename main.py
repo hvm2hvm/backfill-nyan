@@ -160,6 +160,8 @@ def sit_np(c, r, polys):
         d = numpy.dot(A, V)
         e = numpy.dot(V, V)
         sep1 = d * d > rr * e
+        if sep1:
+            continue
 
         aa = numpy.dot(A, A)
         ab = numpy.dot(A, B)
@@ -170,6 +172,8 @@ def sit_np(c, r, polys):
         sep2 = rr < aa < ab and ac > aa
         sep3 = rr < bb < ab and bc > bb
         sep4 = rr < cc < ac and bc > cc
+        if sep2 or sep3 or sep4:
+            continue
 
         AB = B - A
         BC = C - B
@@ -190,13 +194,97 @@ def sit_np(c, r, polys):
         sep6 = numpy.dot(Q2, Q2) > rr * e2 * e2 and numpy.dot(Q2, QA) > 0
         sep7 = numpy.dot(Q3, Q3) > rr * e3 * e3 and numpy.dot(Q3, QB) > 0
 
-        separated = sep1 or sep2 or sep3 or sep4 or sep5 or sep6 or sep7
+        # separated = sep1 or sep2 or sep3 or sep4 or sep5 or sep6 or sep7
+        if sep5 or sep6 or sep7:
+            continue
 
-        if separated:
-            return False
+        return True
 
-    return True
+    return False
 
+
+class OctTree(object):
+
+    def __init__(self, x1, y1, z1, x2, y2, z2, res):
+        if abs(x2-x1) < res / 10.0 or abs(y2-y1) < res / 10.0 or abs(z2-z1) < res / 10.0:
+            self.possible = False
+            return
+        else:
+            self.possible = True
+
+        self.res = res
+        self.x1 = int(x1 / res) * res
+        self.y1 = int(y1 / res) * res
+        self.z1 = int(z1 / res) * res
+        self.x2 = int(x2 / res) * res
+        self.y2 = int(y2 / res) * res
+        self.z2 = int(z2 / res) * res
+        
+        self.xlen = int(self.x2 - self.x1) / res
+        self.ylen = int(self.y2 - self.y1) / res
+        self.zlen = int(self.z2 - self.z1) / res
+        
+        self.has_poly = False
+
+        self.children = []
+        
+
+    def create_children(self):
+        x1, y1, z1, x2, y2, z2 = self.x1, self.y1, self.z1, self.x2, self.y2, self.z2
+
+        xm = self.x1 + self.xlen / 2 * self.res
+        ym = self.y1 + self.ylen / 2 * self.res
+        zm = self.z2 + self.zlen / 2 * self.res
+        
+        self.children = [
+            child for child in [
+                OctTree(x1, y1, z1, xm, ym, zm, self.res),
+                OctTree(x1, y1, zm, xm, ym, z2, self.res),
+                OctTree(x1, ym, z1, xm, y2, zm, self.res),
+                OctTree(x1, ym, zm, xm, y2, z2, self.res),
+
+                OctTree(xm, y1, z1, x2, ym, zm, self.res),
+                OctTree(xm, y1, zm, x2, ym, z2, self.res),
+                OctTree(xm, ym, z1, x2, y2, zm, self.res),
+                OctTree(xm, ym, zm, x2, y2, z2, self.res),
+            ] if child.possible
+        ]
+
+    def poly_contained(self, p):
+        min = numpy.array([self.x1, self.y1, self.z1], dtype=numpy.float64)
+        max = numpy.array([self.x2, self.y2, self.z2], dtype=numpy.float64)
+        for v in p:
+            if not (all(v > min) and all(max > v)):
+                return False
+
+        return True
+
+    def add_poly(self, p):
+        if self.poly_contained(p):
+            self.has_poly = True
+            if self.xlen >= 2 or self.ylen >= 2 or self.zlen >= 2:
+                self.create_children()
+                for child in self.children:
+                    child.add_poly(p)
+
+    def get_leaves(self):
+        if not self.has_poly:
+            return []
+
+        res = []
+
+        for child in self.children:
+            if child.has_poly:
+                if child.xlen == 1 and child.ylen == 1 and child.zlen == 1:
+                    res.append((
+                        child.x1 + self.res / 2,
+                        child.y1 + self.res / 2,
+                        child.z1 + self.res / 2,
+                    ))
+                else:
+                    res += (child.get_leaves())
+
+        return res
 
 class MainWindow(gui.QWidget):
 
@@ -209,7 +297,13 @@ class MainWindow(gui.QWidget):
         self.resolution = 0.1
         self.scene_output = Scene()
         self.gl_output = GLDisplay(self, self.scene_output)
-        self.solve_output(self.scene_input.min, self.scene_input.max)
+        if len(sys.argv) == 2:
+            if sys.argv[1] == 'numpy':
+                self.solve_output_numpy(self.scene_input.min, self.scene_input.max)
+            elif sys.argv[1] == 'octree':
+                self.solve_output_octree(self.scene_input.min, self.scene_input.max)
+        else:
+            self.solve_output(self.scene_input.min, self.scene_input.max)
 
         self.update_layout()
 
@@ -226,13 +320,13 @@ class MainWindow(gui.QWidget):
         self.gl_output.resize(size.width() / 2 - 20, size.height() - 200)
 
     def solve_output(self, min, max):
-        locs = set()
-        rems = set()
+        locs = []
+        rems = []
         print "building all locs"
         for xi in frange(min[0], max[0], self.resolution):
             for yi in frange(min[1], max[1], self.resolution):
                 for zi in frange(min[2], max[2], self.resolution):
-                    locs.add((xi, yi, zi))
+                    locs.append((xi, yi, zi))
 
         print "getting all polys"
         polys = []
@@ -248,9 +342,9 @@ class MainWindow(gui.QWidget):
         start = time.time()
         solved = 0
         for l in locs:
-            for p in polys[:25]:
-                if sphere_int_triangle(Point(*l), self.resolution, p):
-                    rems.add(l)
+            for p in polys[:100]:
+                if sphere_int_triangle(Point(*l), self.resolution / 2, p):
+                    rems.append(l)
 
             solved += 1
             if solved % 10 == 0:
@@ -266,19 +360,14 @@ class MainWindow(gui.QWidget):
         for l in rems:
             self.scene_output.add_object(make_cube(Point(*l), self.resolution / 2))
 
-        print "converting to stl and saving"
-
-        stl = self.scene_output.convert_to_stl()
-        stl.save('acrimsat_05.stl')
-
     def solve_output_numpy(self, min, max):
-        locs = set()
-        rems = set()
+        locs = []
+        rems = []
         print "building all locs"
         for xi in frange(min[0], max[0], self.resolution):
             for yi in frange(min[1], max[1], self.resolution):
                 for zi in frange(min[2], max[2], self.resolution):
-                    locs.add((xi, yi, zi))
+                    locs.append((xi, yi, zi))
 
         print "getting all polys"
 
@@ -295,13 +384,12 @@ class MainWindow(gui.QWidget):
         print "processing %d locs with %d polys" % (len(locs), len(polys))
         start = time.time()
         solved = 0
-        for l in locs:
-            if sit_np(numpy.array(l), self.resolution, polys):
-                rems.add(l)
+        for l in locs[:100]:
+            if sit_np(numpy.array(l), self.resolution / 2, polys):
+                rems.append(l)
 
             solved += 1
-            if solved % 10 == 0:
-                print "solved %d in total \r" % (solved),
+            print "solved %d in total \r" % (solved),
 
         print
         print "process took %5.2fs" % (time.time() - start)
@@ -313,10 +401,27 @@ class MainWindow(gui.QWidget):
         for l in rems:
             self.scene_output.add_object(make_cube(Point(*l), self.resolution / 2))
 
-        # print "converting to stl and saving"
+    def solve_output_octree(self, min, max):
+        tree = OctTree(min[0], min[1], min[2], max[0], max[1], max[2], self.resolution)
 
-        # stl = self.scene_output.convert_to_stl()
-        # stl.save('acrimsat_05.stl')
+        polys = []
+        for o in self.scene_input.objects:
+            points = o.get_points()
+            for p in o.get_polys():
+                np = []
+                for i in p.indices:
+                    np.append(points[i].pp())
+                polys.append(np)
+        polys = numpy.array(polys, dtype=numpy.float64)
+
+        for poly in polys:
+            tree.add_poly(poly)
+
+        leaves = tree.get_leaves()
+        print "generated %d leaves" % (len(leaves))
+
+        for l in leaves:
+            self.scene_output.add_object(make_cube(Point(*l), self.resolution / 2))
 
 
 app = gui.QApplication(sys.argv)
