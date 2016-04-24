@@ -39,6 +39,47 @@ class Point(object):
     def __str__(self):
         return self.__repr__()
 
+    def __add__(self, other):
+        if type(other) in [int, float]:
+            return Point(self.x + other, self.y + other, self.z + other)
+        elif type(other) == Point:
+            return Point(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __sub__(self, other):
+        if type(other) in [int, float]:
+            return Point(self.x - other, self.y - other, self.z - other)
+        elif type(other) == Point:
+            return Point(self.x - other.x, self.y - other.y, self.z - other.z)
+
+    def __mul__(self, other):
+        if type(other) in [int, float]:
+            return Point(self.x * other, self.y * other, self.z * other)
+        elif type(other) == Point:
+            return self.dot(other)
+        
+    def __div__(self, other):
+        if type(other) in [int, float]:
+            return Point(self.x / other, self.y / other, self.z / other)
+        else:
+            raise NotImplemented("Point: div: can only divide with scalars")
+
+    def __neg__(self):
+        return Point(-self.x, -self.y, -self.z)
+    
+    def dist_to(self, other):
+        s = self-other
+        return s.dot(s) ** 0.5
+
+    def cross(self, other):
+        return Point(
+            self.y * other.z - self.z * other.y,
+            self.z * other.x - self.x * other.z,
+            self.x * other.y - self.y * other.x,
+        )
+
+    def dot(self, other):
+        return self.x * other.x + self.y * other.y + self.z * other.z
+
 class Triangle(object):
     def __init__(self, i1, i2, i3, n):
         self.i1 = i1
@@ -76,6 +117,19 @@ class Object(object):
             self.load_from_file(data)
         elif type(data) == types.DictType:
             self.data = data
+
+        self.process()
+
+    def process(self):
+        self.min = [None, ] * 3
+        self.max = [None, ] * 3
+        for p in self.get_points():
+            p = p.pp()
+            for i in range(3):
+                if self.min[i] is None or p[i] < self.min[i]:
+                    self.min[i] = p[i]
+                if self.max[i] is None or p[i] > self.max[i]:
+                    self.max[i] = p[i]
 
     def save_to_file(self, fn):
         open(fn, 'wb').write(pickle.dumps(self.data, 2))
@@ -146,6 +200,21 @@ class Scene(object):
     def load_from_file(self, filename):
         self.objects = pickle.loads(open(filename, 'rb').read())
 
+        for o in self.objects:
+            o.process()
+
+        self.process()
+        
+    def process(self):
+        self.min = [None, ] * 3
+        self.max = [None, ] * 3
+        for o in self.objects:
+            for i in range(3):
+                if self.min[i] is None or o.min[i] < self.min[i]:
+                    self.min[i] = o.min[i]
+                if self.max[i] is None or o.max[i] > self.max[i]:
+                    self.max[i] = o.max[i]
+
     def save_to_file(self, filename):
         open(filename, 'wb').write(pickle.dumps(self.objects, 2))
 
@@ -166,6 +235,61 @@ class Scene(object):
         scene = mesh.Mesh(mesh_data)
 
         return scene
+
+def make_cube(c, r):
+    dx = Point(r, 0, 0)
+    dy = Point(0, r, 0)
+    dz = Point(0, 0, r)
+    points = [
+        c - dx - dy - dz,
+        c - dx - dy + dz,
+
+        c - dx + dy - dz,
+        c - dx + dy + dz,
+
+        c + dx - dy - dz,
+        c + dx - dy + dz,
+
+        c + dx + dy - dz,
+        c + dx + dy + dz,
+    ]
+
+    points[0].n = (-1,-1,-1)
+    points[1].n = (-1,-1,+1)
+    points[2].n = (-1,+1,-1)
+    points[3].n = (-1,+1,+1)
+
+    points[4].n = (+1,-1,-1)
+    points[5].n = (+1,-1,+1)
+    points[6].n = (+1,+1,-1)
+    points[7].n = (+1,+1,+1)
+
+    polys = [
+        [0, 1, 2],
+        [2, 1, 3],
+
+        [2, 0, 4],
+        [2, 4, 7],
+
+        [4, 0, 1],
+        [4, 1, 5],
+
+        [6, 4, 5],
+        [6, 5, 7],
+
+        [6, 7, 3],
+        [2, 7, 3],
+
+        [7, 5, 3],
+        [3, 5, 1],
+    ]
+    polys = [Poly(p) for p in polys]
+
+    cube = Object()
+    cube.set_points(points)
+    cube.set_polys(polys)
+
+    return cube
 
 """
     Nx = UyVz - UzVy
