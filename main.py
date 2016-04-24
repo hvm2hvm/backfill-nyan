@@ -209,7 +209,7 @@ class MainWindow(gui.QWidget):
         self.resolution = 0.1
         self.scene_output = Scene()
         self.gl_output = GLDisplay(self, self.scene_output)
-        self.solve_output_numpy(self.scene_input.min, self.scene_input.max)
+        self.solve_output(self.scene_input.min, self.scene_input.max)
 
         self.update_layout()
 
