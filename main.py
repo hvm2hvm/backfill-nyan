@@ -104,15 +104,9 @@ class GLDisplay(qgl.QGLWidget):
 def dist(v1, v2):
     return ((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2 + (v1.y - v2.y) ** 2) ** 0.5
 
-time1 = 0.0
-time2 = 0.0
-time3 = 0.0
-
 def sphere_int_triangle(c, r, t):
-    global time1, time2, time3
     # note: thanks to Christer Ericson ( http://realtimecollisiondetection.net/blog/?p=103 )
 
-    start = time.time()
     A = t[0] - c
     B = t[1] - c
     C = t[2] - c
@@ -121,7 +115,6 @@ def sphere_int_triangle(c, r, t):
     d = A * V
     e = V * V
     sep1 = d * d > rr * e
-    time1 += time.time() - start
 
     aa = A * A
     ab = A * B
@@ -132,7 +125,6 @@ def sphere_int_triangle(c, r, t):
     sep2 = rr < aa < ab and ac > aa
     sep3 = rr < bb < ab and bc > bb
     sep4 = rr < cc < ac and bc > cc
-    time2 += time.time() - start
 
     AB = B - A
     BC = C - B
@@ -152,11 +144,59 @@ def sphere_int_triangle(c, r, t):
     sep5 = Q1 * Q1 > rr * e1 * e1 and Q1 * QC > 0
     sep6 = Q2 * Q2 > rr * e2 * e2 and Q2 * QA > 0
     sep7 = Q3 * Q3 > rr * e3 * e3 and Q3 * QB > 0
-    time3 += time.time() - start
 
     separated = sep1 or sep2 or sep3 or sep4 or sep5 or sep6 or sep7
 
     return not separated
+
+def sit_np(c, r, polys):
+
+    for t in polys:
+        A = t[0] - c
+        B = t[1] - c
+        C = t[2] - c
+        rr = r * r
+        V = numpy.cross(B - A, C - A)
+        d = numpy.dot(A, V)
+        e = numpy.dot(V, V)
+        sep1 = d * d > rr * e
+
+        aa = numpy.dot(A, A)
+        ab = numpy.dot(A, B)
+        ac = numpy.dot(A, C)
+        bb = numpy.dot(B, B)
+        bc = numpy.dot(B, C)
+        cc = numpy.dot(C, C)
+        sep2 = rr < aa < ab and ac > aa
+        sep3 = rr < bb < ab and bc > bb
+        sep4 = rr < cc < ac and bc > cc
+
+        AB = B - A
+        BC = C - B
+        CA = A - C
+        d1 = ab - aa
+        d2 = bc - bb
+        d3 = ac - cc
+        e1 = numpy.dot(AB, AB)
+        e2 = numpy.dot(BC, BC)
+        e3 = numpy.dot(CA, CA)
+        Q1 = A * e1 - AB * d1
+        Q2 = B * e2 - BC * d2
+        Q3 = C * e3 - CA * d3
+        QC = C * e1 - Q1
+        QA = A * e2 - Q2
+        QB = B * e3 - Q3
+        sep5 = numpy.dot(Q1, Q1) > rr * e1 * e1 and numpy.dot(Q1, QC) > 0
+        sep6 = numpy.dot(Q2, Q2) > rr * e2 * e2 and numpy.dot(Q2, QA) > 0
+        sep7 = numpy.dot(Q3, Q3) > rr * e3 * e3 and numpy.dot(Q3, QB) > 0
+
+        separated = sep1 or sep2 or sep3 or sep4 or sep5 or sep6 or sep7
+
+        if separated:
+            return False
+
+    return True
+
 
 class MainWindow(gui.QWidget):
 
@@ -169,7 +209,7 @@ class MainWindow(gui.QWidget):
         self.resolution = 0.1
         self.scene_output = Scene()
         self.gl_output = GLDisplay(self, self.scene_output)
-        self.solve_output(self.scene_input.min, self.scene_input.max)
+        self.solve_output_numpy(self.scene_input.min, self.scene_input.max)
 
         self.update_layout()
 
@@ -205,21 +245,67 @@ class MainWindow(gui.QWidget):
                 polys.append(np)
 
         print "processing %d locs with %d polys" % (len(locs), len(polys))
+        start = time.time()
         solved = 0
         for l in locs:
             for p in polys[:25]:
                 if sphere_int_triangle(Point(*l), self.resolution, p):
                     rems.add(l)
+
             solved += 1
             if solved % 10 == 0:
                 print "solved %d in total \r" % (solved),
 
-        print """
-    times:
-        %5.2f
-        %5.2f
-        %5.2f
-        """ % (time1, time2, time3)
+        print
+        print "process took %5.2fs" % (time.time() - start)
+        print
+
+        print "had %d entries, now have %d" % (len(locs), len(rems))
+
+        print "building output objects"
+        for l in rems:
+            self.scene_output.add_object(make_cube(Point(*l), self.resolution / 2))
+
+        print "converting to stl and saving"
+
+        stl = self.scene_output.convert_to_stl()
+        stl.save('acrimsat_05.stl')
+
+    def solve_output_numpy(self, min, max):
+        locs = set()
+        rems = set()
+        print "building all locs"
+        for xi in frange(min[0], max[0], self.resolution):
+            for yi in frange(min[1], max[1], self.resolution):
+                for zi in frange(min[2], max[2], self.resolution):
+                    locs.add((xi, yi, zi))
+
+        print "getting all polys"
+
+        polys = []
+        for o in self.scene_input.objects:
+            points = o.get_points()
+            for p in o.get_polys():
+                np = []
+                for i in p.indices:
+                    np.append(points[i].pp())
+                polys.append(np)
+        polys = numpy.array(polys, dtype=numpy.float64)
+
+        print "processing %d locs with %d polys" % (len(locs), len(polys))
+        start = time.time()
+        solved = 0
+        for l in locs:
+            if sit_np(numpy.array(l), self.resolution, polys):
+                rems.add(l)
+
+            solved += 1
+            if solved % 10 == 0:
+                print "solved %d in total \r" % (solved),
+
+        print
+        print "process took %5.2fs" % (time.time() - start)
+        print
 
         print "had %d entries, now have %d" % (len(locs), len(rems))
 
