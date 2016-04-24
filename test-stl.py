@@ -4,7 +4,7 @@ from matplotlib import pyplot
 
 from libobj import *
 
-scene = Scene('tdrs.nyan').convert_to_stl()
+scene = Scene('acrimsat_05.nyan').convert_to_stl()
 
 figure = pyplot.figure()
 axes = mplot3d.Axes3D(figure)
@@ -16,4 +16,4 @@ axes.auto_scale_xyz(scale, scale, scale)
 # Show the plot to the screen
 pyplot.show()
 
-scene.save('tdrs.stl')
+scene.save('acrimsat_05.stl')
