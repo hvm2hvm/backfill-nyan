@@ -56,6 +56,12 @@ class Point(object):
             return Point(self.x * other, self.y * other, self.z * other)
         elif type(other) == Point:
             return self.dot(other)
+
+    def __pow__(self, other):
+        if type(other) in [int, float]:
+            return Point(self.x ** other, self.y ** other, self.z ** other)
+        elif type(other) == Point:
+            return self.cross(other)
         
     def __div__(self, other):
         if type(other) in [int, float]:
@@ -269,7 +275,7 @@ def make_cube(c, r):
         [2, 1, 3],
 
         [2, 0, 4],
-        [2, 4, 7],
+        [2, 4, 6],
 
         [4, 0, 1],
         [4, 1, 5],
@@ -277,7 +283,7 @@ def make_cube(c, r):
         [6, 4, 5],
         [6, 5, 7],
 
-        [6, 7, 3],
+        [2, 6, 7],
         [2, 7, 3],
 
         [7, 5, 3],

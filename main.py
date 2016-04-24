@@ -1,5 +1,6 @@
 import glob
 import sys
+import time
 import PyQt4 as qt
 from OpenGL.GL import *
 import random
@@ -103,62 +104,59 @@ class GLDisplay(qgl.QGLWidget):
 def dist(v1, v2):
     return ((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2 + (v1.y - v2.y) ** 2) ** 0.5
 
+time1 = 0.0
+time2 = 0.0
+time3 = 0.0
+
 def sphere_int_triangle(c, r, t):
+    global time1, time2, time3
     # note: thanks to Christer Ericson ( http://realtimecollisiondetection.net/blog/?p=103 )
 
+    start = time.time()
     A = t[0] - c
     B = t[1] - c
     C = t[2] - c
-    V = (B-A).cross(C-A)
-    d = A.dot(V)
-    e = V.dot(V)
-    separated = d * d > r * r * e
-
-    if separated:
-        return False
-
-    aa = A.dot(A)
-    ab = A.dot(B)
-    ac = A.dot(C)
-    bb = B.dot(B)
-    bc = B.dot(C)
-    cc = C.dot(C)
     rr = r * r
-    separateda = (aa > rr) and (ab > aa) and (ac > aa)
-    separatedb = (bb > rr) and (ab > bb) and (bc > bb)
-    separatedc = (cc > rr) and (ac > cc) and (bc > cc)
-    separated = separateda or separatedb or separatedc
+    V = (B - A) ** (C - A)
+    d = A * V
+    e = V * V
+    sep1 = d * d > rr * e
+    time1 += time.time() - start
 
-    if separated:
-        return False
+    aa = A * A
+    ab = A * B
+    ac = A * C
+    bb = B * B
+    bc = B * C
+    cc = C * C
+    sep2 = rr < aa < ab and ac > aa
+    sep3 = rr < bb < ab and bc > bb
+    sep4 = rr < cc < ac and bc > cc
+    time2 += time.time() - start
 
     AB = B - A
     BC = C - B
-    CA = A - C
-
-    d1 = A.dot(AB)
-    e1 = AB.dot(AB)
-    d2 = B.dot(BC)
-    e2 = BC.dot(BC)
-    d3 = C.dot(CA)
-    e3 = CA.dot(CA)
-
+    CA = A - C 
+    d1 = ab - aa
+    d2 = bc - bb
+    d3 = ac - cc 
+    e1 = AB * AB 
+    e2 = BC * BC 
+    e3 = CA * CA 
     Q1 = A * e1 - AB * d1
+    Q2 = B * e2 - BC * d2 
+    Q3 = C * e3 - CA * d3 
     QC = C * e1 - Q1
-    Q2 = B * e2 - BC * d2
-    QA = A * e1 - Q2
-    Q3 = C * e3 - CA * d3
+    QA = A * e2 - Q2 
     QB = B * e3 - Q3
+    sep5 = Q1 * Q1 > rr * e1 * e1 and Q1 * QC > 0
+    sep6 = Q2 * Q2 > rr * e2 * e2 and Q2 * QA > 0
+    sep7 = Q3 * Q3 > rr * e3 * e3 and Q3 * QB > 0
+    time3 += time.time() - start
 
-    separated1 = Q1.dot(Q1) > r * r * e1 * e1 and Q1.dot(QC) > 0
-    separated2 = Q2.dot(Q2) > r * r * e2 * e2 and Q2.dot(QA) > 0
-    separated3 = Q3.dot(Q3) > r * r * e3 * e3 and Q3.dot(QB) > 0
-    separated = separated1 or separated2 or separated3
+    separated = sep1 or sep2 or sep3 or sep4 or sep5 or sep6 or sep7
 
-    if separated:
-        return False
-
-    return True
+    return not separated
 
 class MainWindow(gui.QWidget):
 
@@ -209,16 +207,27 @@ class MainWindow(gui.QWidget):
         print "processing %d locs with %d polys" % (len(locs), len(polys))
         solved = 0
         for l in locs:
-            for p in polys[:500]:
+            for p in polys[:25]:
                 if sphere_int_triangle(Point(*l), self.resolution, p):
                     rems.add(l)
             solved += 1
-            print "solved %d in total \r" % (solved),
+            if solved % 10 == 0:
+                print "solved %d in total \r" % (solved),
+
+        print """
+    times:
+        %5.2f
+        %5.2f
+        %5.2f
+        """ % (time1, time2, time3)
 
         print "had %d entries, now have %d" % (len(locs), len(rems))
 
+        print "building output objects"
         for l in rems:
             self.scene_output.add_object(make_cube(Point(*l), self.resolution / 2))
+
+        print "converting to stl and saving"
 
         stl = self.scene_output.convert_to_stl()
         stl.save('acrimsat_05.stl')
